@@ -113,4 +113,25 @@ func (n *Node) OnReceiveACK(env Envelope) {
 
 func (n *Node) tryDeliver() {
 	fmt.Printf("(%d) Tentando entregar mensagens...", n.ID)
+
+	if !n.Queue.IsEmpty() {
+		top := n.Queue.Peek()
+		st, exists := n.States[top.ID]
+
+		if exists && len(st.AckedBy) == n.NumPeers {
+			msg := n.Queue.Pop()
+
+			fmt.Printf("(%d) [ENTREGUE] ID=%+v ts=%d payload='%s' ACKs=%d/%d\n",
+				n.ID, msg.ID, msg.DataTimestamp, *st.Payload,
+				len(st.AckedBy), n.NumPeers)
+
+			delete(n.States, msg.ID)
+		} else {
+			if exists {
+				fmt.Printf("(%d) [AGUARDANDO] ID=%+v ACKs=%d/%d\n", n.ID, top.ID, len(st.AckedBy), n.NumPeers)
+			} else {
+				fmt.Printf("(%d) [ERRO] Estado não encontrado para ID=%+v\n", n.ID, top.ID)
+			}
+		}
+	}
 }
