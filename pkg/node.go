@@ -53,14 +53,55 @@ func (n *Node) OnSendApp(payload string) {
 		// TODO implementar envio para peers
 	}
 
+	// TEST: on receive local
+	n.OnReceiveDATA(Envelope)
+
+	fmt.Printf("(%d) Node atualizado: %+v\n", n.ID, n)
 }
 
 func (n *Node) OnReceiveDATA(env Envelope) {
-	fmt.Printf("(%d) [DATA]: %+v\n", n.ID, env)
+	ts := n.Clock.OnReceive(env.Timestamp)
+	fmt.Printf("(%d) [DATA]: %+v | Clock: %d -> %d\n", n.ID, env, n.Clock.Now(), ts)
+
+	st, exists := n.States[env.ID]
+	if !exists {
+		st = &MsgState{
+			ID:      env.ID,
+			AckedBy: make(map[int]struct{}),
+		}
+		n.States[env.ID] = st
+	}
+
+	st.DataTimestamp = env.Timestamp
+	st.Payload = &env.Payload
+
+	if !st.Enqueued {
+		qi := &QueueItem{
+			ID:            env.ID,
+			DataTimestamp: env.Timestamp,
+		}
+		n.Queue.Push(qi)
+		st.Enqueued = true
+		fmt.Printf("(%d) Mensagem enfileirada: %+v\n", n.ID, qi)
+	}
+
+	tsAck := n.Clock.Tick()
+	ackEnv := Envelope{
+		Type:      "ACK",
+		FromID:    n.ID,
+		Timestamp: tsAck,
+		ID:        env.ID,
+	}
+	fmt.Printf("(%d) Enviando ACK: %+v | Clock: %d -> %d\n", n.ID, ackEnv, n.Clock.Now(), tsAck)
+
+	n.OnReceiveACK(ackEnv) // Processar local
+	n.tryDeliver(&ackEnv)
 }
 
 func (n *Node) OnReceiveACK(env Envelope) {
 	fmt.Printf("(%d) [ACK]: %+v\n", n.ID, env)
 }
 
-func tryDeliver(n *Node) {}
+func (n *Node) tryDeliver(env *Envelope) {
+	fmt.Printf("(%d) Tentando entregar mensagem: %+v\n", n.ID, env)
+}
