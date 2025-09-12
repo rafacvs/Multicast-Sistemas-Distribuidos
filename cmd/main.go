@@ -63,6 +63,8 @@ func main() {
 	Node := pkg.NewNode(*id, peers)
 	fmt.Printf("Node inicializado: %+v\n", Node)
 
+	Node.OnSendApp("Hello Node")
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
