@@ -38,6 +38,7 @@ func (n *Node) OnSendApp(payload string) {
 		SenderID: n.ID,
 		Seq:      n.NextSeq,
 	}
+	n.NextSeq++
 
 	Envelope := Envelope{
 		Type:      "DATA",
@@ -46,8 +47,6 @@ func (n *Node) OnSendApp(payload string) {
 		ID:        ID,
 		Payload:   payload,
 	}
-
-	fmt.Printf("(%d) Enviando: %+v\n", n.ID, Envelope)
 
 	for i := 0; i < n.NumPeers; i++ {
 		// TODO implementar envio para peers
@@ -60,8 +59,7 @@ func (n *Node) OnSendApp(payload string) {
 }
 
 func (n *Node) OnReceiveDATA(env Envelope) {
-	ts := n.Clock.OnReceive(env.Timestamp)
-	fmt.Printf("(%d) [DATA]: %+v | Clock: %d -> %d\n", n.ID, env, n.Clock.Now(), ts)
+	n.Clock.OnReceive(env.Timestamp)
 
 	st, exists := n.States[env.ID]
 	if !exists {
@@ -92,16 +90,27 @@ func (n *Node) OnReceiveDATA(env Envelope) {
 		Timestamp: tsAck,
 		ID:        env.ID,
 	}
-	fmt.Printf("(%d) Enviando ACK: %+v | Clock: %d -> %d\n", n.ID, ackEnv, n.Clock.Now(), tsAck)
 
 	n.OnReceiveACK(ackEnv) // Processar local
-	n.tryDeliver(&ackEnv)
+	n.tryDeliver()
 }
 
 func (n *Node) OnReceiveACK(env Envelope) {
-	fmt.Printf("(%d) [ACK]: %+v\n", n.ID, env)
+	n.Clock.OnReceive(env.Timestamp)
+
+	st, exists := n.States[env.ID]
+	if !exists {
+		st = &MsgState{
+			ID:      env.ID,
+			AckedBy: make(map[int]struct{}),
+		}
+		n.States[env.ID] = st
+	}
+	st.AckedBy[env.FromID] = struct{}{}
+
+	n.tryDeliver()
 }
 
-func (n *Node) tryDeliver(env *Envelope) {
-	fmt.Printf("(%d) Tentando entregar mensagem: %+v\n", n.ID, env)
+func (n *Node) tryDeliver() {
+	fmt.Printf("(%d) Tentando entregar mensagens...", n.ID)
 }
