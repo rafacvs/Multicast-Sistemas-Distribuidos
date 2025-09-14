@@ -3,13 +3,57 @@ package pkg
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
+	"time"
 )
 
 type UDPNetwork struct {
 	LocalAddr *net.UDPAddr
 	Conn      *net.UDPConn
 	Node      *Node
+}
+
+var (
+	delayDataMeanMs   int
+	delayDataJitterMs int
+	delayAckMeanMs    int
+	delayAckJitterMs  int
+	randomSource      *rand.Rand
+)
+
+func SetNetworkDelays(dataMeanMs, dataJitterMs, ackMeanMs, ackJitterMs int, seed int64) {
+	delayDataMeanMs = dataMeanMs
+	delayDataJitterMs = dataJitterMs
+	delayAckMeanMs = ackMeanMs
+	delayAckJitterMs = ackJitterMs
+	if seed != 0 {
+		randomSource = rand.New(rand.NewSource(seed))
+	} else {
+		randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
+}
+
+func sleepWithDelayFor(env Envelope) {
+	var mean, jitter int
+	if env.Type == "ACK" {
+		mean, jitter = delayAckMeanMs, delayAckJitterMs
+	} else {
+		mean, jitter = delayDataMeanMs, delayDataJitterMs
+	}
+	if mean == 0 && jitter == 0 {
+		return
+	}
+	// delay = mean ± jitter
+	d := mean
+	if jitter > 0 && randomSource != nil {
+		delta := randomSource.Intn(2*jitter+1) - jitter
+		d += delta
+		if d < 0 {
+			d = 0
+		}
+	}
+	time.Sleep(time.Duration(d) * time.Millisecond)
 }
 
 func NewUDPNetwork(localAddr string, node *Node) (*UDPNetwork, error) {
@@ -33,6 +77,8 @@ func NewUDPNetwork(localAddr string, node *Node) (*UDPNetwork, error) {
 }
 
 func (n *UDPNetwork) SendToPeer(peer Peer, env Envelope) error {
+	sleepWithDelayFor(env)
+
 	data, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("erro ao serializar envelope: %v", err)
@@ -49,7 +95,6 @@ func (n *UDPNetwork) SendToPeer(peer Peer, env Envelope) error {
 		return fmt.Errorf("erro ao enviar para peer %d: %v", peer.ID, err)
 	}
 
-	fmt.Printf("Enviado para peer %d (%s): %v\n", peer.ID, peer.Addr, env.Type)
 	return nil
 }
 
@@ -87,7 +132,7 @@ func (n *UDPNetwork) StartReceiving() {
 }
 
 func (n *UDPNetwork) handleMessage(env Envelope) {
-	fmt.Printf("Mensagem recebida de %d: %s\n", env.FromID, env.Type)
+	fmt.Printf("\n[%s] Mensagem recebida de %d\n", env.Type, env.FromID)
 
 	switch env.Type {
 	case "DATA":

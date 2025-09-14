@@ -39,6 +39,13 @@ func LoadPeers(configFile string) ([]pkg.Peer, error) {
 
 func main() {
 	id := flag.Int("id", 0, "ID do processo é obrigatório.")
+
+	delayDataMean := flag.Int("delay-data-mean-ms", 0, "Atraso médio (ms) para mensagens DATA")
+	delayDataJitter := flag.Int("delay-data-jitter-ms", 0, "Jitter (±ms) aplicado ao atraso de DATA")
+	delayAckMean := flag.Int("delay-ack-mean-ms", 0, "Atraso médio (ms) para mensagens ACK")
+	delayAckJitter := flag.Int("delay-ack-jitter-ms", 0, "Jitter (±ms) aplicado ao atraso de ACK")
+	randSeed := flag.Int64("rand-seed", 0, "Semente para aleatoriedade reprodutível (0 desabilita)")
+
 	flag.Parse()
 
 	if *id == 0 {
@@ -58,6 +65,8 @@ func main() {
 
 	node := pkg.NewNode(*id, peers)
 	fmt.Printf("Node inicializado com ID %d\n", node.ID)
+
+	pkg.SetNetworkDelays(*delayDataMean, *delayDataJitter, *delayAckMean, *delayAckJitter, *randSeed)
 
 	err = node.SetupNetwork()
 	if err != nil {

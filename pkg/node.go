@@ -142,8 +142,6 @@ func (n *Node) SetupNetwork() error {
 }
 
 func (n *Node) tryDeliver() {
-	fmt.Printf("(%d) Tentando entregar mensagens...\n", n.ID)
-
 	for !n.Queue.IsEmpty() {
 		top := n.Queue.Peek()
 		st, exists := n.States[top.ID]
