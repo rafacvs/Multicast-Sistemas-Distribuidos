@@ -12,6 +12,7 @@ type Node struct {
 	States   map[MessageID]*MsgState
 	NextSeq  int64
 	NumPeers int
+	Network  *UDPNetwork
 }
 
 func NewNode(ID int, Peers []Peer) *Node {
@@ -32,7 +33,7 @@ func NewNode(ID int, Peers []Peer) *Node {
 }
 
 func (n *Node) OnSendApp(payload string) {
-	n.Clock.Tick()
+	timestamp := n.Clock.Tick()
 
 	ID := MessageID{
 		SenderID: n.ID,
@@ -40,22 +41,21 @@ func (n *Node) OnSendApp(payload string) {
 	}
 	n.NextSeq++
 
-	Envelope := Envelope{
+	envelope := Envelope{
 		Type:      "DATA",
 		FromID:    n.ID,
-		Timestamp: n.Clock.Now(),
+		Timestamp: timestamp,
 		ID:        ID,
 		Payload:   payload,
 	}
 
-	for i := 0; i < n.NumPeers; i++ {
-		// TODO implementar envio para peers
+	fmt.Printf("(%d) Enviando mensagem: %+v\n", n.ID, envelope)
+
+	if n.Network != nil {
+		n.Network.Broadcast(envelope)
+	} else {
+		fmt.Printf("(%d) AVISO: Network não configurado, mensagem não enviada\n", n.ID)
 	}
-
-	// TEST: on receive local
-	n.OnReceiveDATA(Envelope)
-
-	fmt.Printf("(%d) Node atualizado: %+v\n", n.ID, n)
 }
 
 func (n *Node) OnReceiveDATA(env Envelope) {
@@ -91,8 +91,13 @@ func (n *Node) OnReceiveDATA(env Envelope) {
 		ID:        env.ID,
 	}
 
-	n.OnReceiveACK(ackEnv) // Processar local
-	n.tryDeliver()
+	fmt.Printf("(%d) Enviando ACK para mensagem: ID=%+v ts=%d\n", n.ID, env.ID, tsAck)
+
+	if n.Network != nil {
+		n.Network.Broadcast(ackEnv)
+	} else {
+		fmt.Printf("(%d) AVISO: Network não configurado, ACK não enviado\n", n.ID)
+	}
 }
 
 func (n *Node) OnReceiveACK(env Envelope) {
@@ -111,10 +116,35 @@ func (n *Node) OnReceiveACK(env Envelope) {
 	n.tryDeliver()
 }
 
-func (n *Node) tryDeliver() {
-	fmt.Printf("(%d) Tentando entregar mensagens...", n.ID)
+func (n *Node) SetupNetwork() error {
+	var localAddr string
+	for _, peer := range n.Peers {
+		if peer.ID == n.ID {
+			localAddr = peer.Addr
+			break
+		}
+	}
 
-	if !n.Queue.IsEmpty() {
+	if localAddr == "" {
+		return fmt.Errorf("endereço local não encontrado para ID %d", n.ID)
+	}
+
+	network, err := NewUDPNetwork(localAddr, n)
+	if err != nil {
+		return fmt.Errorf("erro ao configurar rede: %v", err)
+	}
+
+	n.Network = network
+	network.StartReceiving()
+
+	fmt.Printf("(%d) Rede configurada no endereço %s\n", n.ID, localAddr)
+	return nil
+}
+
+func (n *Node) tryDeliver() {
+	fmt.Printf("(%d) Tentando entregar mensagens...\n", n.ID)
+
+	for !n.Queue.IsEmpty() {
 		top := n.Queue.Peek()
 		st, exists := n.States[top.ID]
 
@@ -126,12 +156,15 @@ func (n *Node) tryDeliver() {
 				len(st.AckedBy), n.NumPeers)
 
 			delete(n.States, msg.ID)
+
+			continue
 		} else {
 			if exists {
 				fmt.Printf("(%d) [AGUARDANDO] ID=%+v ACKs=%d/%d\n", n.ID, top.ID, len(st.AckedBy), n.NumPeers)
 			} else {
 				fmt.Printf("(%d) [ERRO] Estado não encontrado para ID=%+v\n", n.ID, top.ID)
 			}
+			break
 		}
 	}
 }

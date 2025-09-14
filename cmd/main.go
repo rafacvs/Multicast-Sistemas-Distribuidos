@@ -1,18 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"sd/t1/pkg"
 )
 
-// LoadPeers carrega a configuração de peers do arquivo JSON
 func LoadPeers(configFile string) ([]pkg.Peer, error) {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
@@ -24,7 +25,6 @@ func LoadPeers(configFile string) ([]pkg.Peer, error) {
 		return nil, fmt.Errorf("erro ao processar JSON de peers: %v", err)
 	}
 
-	// Validar que todos os peers têm ID e endereço
 	for i, p := range peers {
 		if p.ID <= 0 {
 			return nil, fmt.Errorf("peer na posição %d tem ID inválido: %d", i, p.ID)
@@ -59,16 +59,80 @@ func main() {
 		fmt.Printf("  - Peer %d: %s\n", p.ID, p.Addr)
 	}
 
-	// TODO: Implementar logica
-	Node := pkg.NewNode(*id, peers)
-	fmt.Printf("Node inicializado: %+v\n", Node)
+	node := pkg.NewNode(*id, peers)
+	fmt.Printf("Node inicializado com ID %d\n", node.ID)
 
-	Node.OnSendApp("Hello Node")
+	err = node.SetupNetwork()
+	if err != nil {
+		log.Fatalf("Erro ao configurar rede: %v", err)
+	}
+
+	inputChan := make(chan string)
+	go func() {
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			fmt.Print("> ")
+			text, err := reader.ReadString('\n')
+			if err != nil {
+				fmt.Printf("Erro ao ler stdin: %v\n", err)
+				continue
+			}
+
+			text = strings.TrimSpace(text)
+			inputChan <- text
+		}
+	}()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	fmt.Println("[EXECUTANDO] Aperte Ctrl+C para sair.")
-	<-sigChan
-	fmt.Println("\n [FINALIZADO].")
+	fmt.Println("[EXECUTANDO] Digite 'send <mensagem>' para enviar uma mensagem, ou Ctrl+C para sair.")
+
+	running := true
+	for running {
+		select {
+		case input := <-inputChan:
+			handleCommand(input, node)
+		case <-sigChan:
+			fmt.Println("\n [FINALIZANDO]...")
+			running = false
+		}
+	}
+	fmt.Println("[FINALIZADO].")
+}
+
+func handleCommand(input string, node *pkg.Node) {
+	parts := strings.SplitN(input, " ", 2)
+
+	if len(parts) == 0 {
+		return
+	}
+
+	cmd := parts[0]
+
+	switch cmd {
+	case "send":
+		if len(parts) < 2 {
+			fmt.Println("Uso: send <mensagem>")
+			return
+		}
+		payload := parts[1]
+		fmt.Printf("Enviando: %s\n", payload)
+		node.OnSendApp(payload)
+
+	case "queue":
+		fmt.Printf("Fila: %d mensagens\n", node.Queue.Size())
+		if !node.Queue.IsEmpty() {
+			top := node.Queue.Peek()
+			st, exists := node.States[top.ID]
+			if exists {
+				fmt.Printf("Topo: ID=%+v ts=%d ACKs=%d/%d\n",
+					top.ID, top.DataTimestamp, len(st.AckedBy), node.NumPeers)
+			}
+		}
+
+	default:
+		fmt.Printf("Comando desconhecido: %s\n", cmd)
+		fmt.Println("Comandos disponíveis: send, queue")
+	}
 }
