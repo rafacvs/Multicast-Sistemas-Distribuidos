@@ -80,7 +80,7 @@ func (n *UDPNetwork) StartReceiving() {
 				continue
 			}
 
-			go n.handleMessage(env)
+			n.handleMessage(env)
 		}
 	}()
 	fmt.Println("Recebimento de mensagens iniciado...")
