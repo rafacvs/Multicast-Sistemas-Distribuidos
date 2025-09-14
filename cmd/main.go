@@ -39,7 +39,6 @@ func LoadPeers(configFile string) ([]pkg.Peer, error) {
 
 func main() {
 	id := flag.Int("id", 0, "ID do processo é obrigatório.")
-	configFile := flag.String("config", "peers.json", "Path para o arquivo de configuracao de peers")
 	flag.Parse()
 
 	if *id == 0 {
@@ -47,9 +46,7 @@ func main() {
 	}
 
 	fmt.Printf("Iniciando processo (ID %d)\n", *id)
-	fmt.Printf("Config: %s\n", *configFile)
-
-	peers, err := LoadPeers(*configFile)
+	peers, err := LoadPeers("peers.json")
 	if err != nil {
 		log.Fatalf("Falha ao carregar peers: %v", err)
 	}
