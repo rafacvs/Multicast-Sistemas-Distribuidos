@@ -123,18 +123,15 @@ func handleCommand(input string, node *pkg.Node) {
 			return
 		}
 		payload := parts[1]
-		fmt.Printf("Enviando: %s\n", payload)
 		node.OnSendApp(payload)
 
 	case "queue":
 		fmt.Printf("Fila: %d mensagens\n", node.Queue.Size())
-		if !node.Queue.IsEmpty() {
-			top := node.Queue.Peek()
-			st, exists := node.States[top.ID]
-			if exists {
-				fmt.Printf("Topo: ID=%+v ts=%d ACKs=%d/%d\n",
-					top.ID, top.DataTimestamp, len(st.AckedBy), node.NumPeers)
-			}
+
+		items := node.Queue.Items()
+		for index, item := range items {
+			fmt.Printf("\t(%d): ID=%+v ts=%d\n", index+1, item.ID, item.DataTimestamp)
+			fmt.Printf("\t > %s\n", *node.States[item.ID].Payload)
 		}
 
 	default:

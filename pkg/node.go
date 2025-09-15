@@ -149,9 +149,11 @@ func (n *Node) tryDeliver() {
 		if exists && len(st.AckedBy) == n.NumPeers {
 			msg := n.Queue.Pop()
 
-			fmt.Printf("(%d) [ENTREGUE] ID=%+v ts=%d payload='%s' ACKs=%d/%d\n",
-				n.ID, msg.ID, msg.DataTimestamp, *st.Payload,
+			fmt.Printf("(%d) [ENTREGUE] ID=%+v ts=%d  ACKs=%d/%d\n",
+				n.ID, msg.ID, msg.DataTimestamp,
 				len(st.AckedBy), n.NumPeers)
+
+			fmt.Printf("(%d) [MENSAGEM] %s\n", msg.ID.SenderID, *st.Payload)
 
 			delete(n.States, msg.ID)
 
