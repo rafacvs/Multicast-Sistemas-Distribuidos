@@ -73,6 +73,8 @@ func main() {
 		log.Fatalf("Erro ao configurar rede: %v", err)
 	}
 
+	fmt.Println("[EXECUTANDO] Digite 'send <mensagem>' para enviar uma mensagem, ou Ctrl+C para sair.")
+
 	inputChan := make(chan string)
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
@@ -91,8 +93,6 @@ func main() {
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	fmt.Println("[EXECUTANDO] Digite 'send <mensagem>' para enviar uma mensagem, ou Ctrl+C para sair.")
 
 	running := true
 	for running {
@@ -141,4 +141,6 @@ func handleCommand(input string, node *pkg.Node) {
 		fmt.Printf("Comando desconhecido: %s\n", cmd)
 		fmt.Println("Comandos disponíveis: send, queue")
 	}
+
+	fmt.Println("")
 }

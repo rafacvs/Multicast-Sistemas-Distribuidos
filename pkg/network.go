@@ -142,6 +142,7 @@ func (n *UDPNetwork) handleMessage(env Envelope) {
 	default:
 		fmt.Printf("Tipo de mensagem desconhecido: %s\n", env.Type)
 	}
+	fmt.Print("> ")
 }
 
 func (n *UDPNetwork) Close() error {
