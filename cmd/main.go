@@ -79,7 +79,6 @@ func main() {
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
-			fmt.Print("> ")
 			text, err := reader.ReadString('\n')
 			if err != nil {
 				fmt.Printf("Erro ao ler stdin: %v\n", err)
@@ -91,6 +90,7 @@ func main() {
 		}
 	}()
 
+	fmt.Print("> ")
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -99,6 +99,7 @@ func main() {
 		select {
 		case input := <-inputChan:
 			handleCommand(input, node)
+			fmt.Print("> ")
 		case <-sigChan:
 			fmt.Println("\n [FINALIZANDO]...")
 			running = false
@@ -138,6 +139,4 @@ func handleCommand(input string, node *pkg.Node) {
 		fmt.Printf("Comando desconhecido: %s\n", cmd)
 		fmt.Println("Comandos disponíveis: send, queue")
 	}
-
-	fmt.Println("")
 }
