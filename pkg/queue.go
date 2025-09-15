@@ -75,3 +75,7 @@ func (q *HoldBackQueue) IsEmpty() bool {
 func (q *HoldBackQueue) Size() int {
 	return len(q.queue)
 }
+
+func (q *HoldBackQueue) Items() []*QueueItem {
+	return q.queue
+}
