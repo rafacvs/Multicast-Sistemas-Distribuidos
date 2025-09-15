@@ -25,13 +25,13 @@ O sistema deve suportar o cenário em que um ACK pode chegar antes da mensagem o
 
 ```bash
 # Terminal 1
-go run cmd/main.go --id=1 --config=peers.json
+go run cmd/main.go --id=1
 
 # Terminal 2
-go run cmd/main.go --id=2 --config=peers.json
+go run cmd/main.go --id=2
 
 # Terminal 3
-go run cmd/main.go --id=3 --config=peers.json
+go run cmd/main.go --id=3
 ```
 
 ### Objetivo
