@@ -15,31 +15,9 @@ import (
 )
 
 func main() {
-	id, delayDataMean, delayDataJitter, delayAckMean, delayAckJitter, randSeed := resolveFlags()
-
-	fmt.Printf("Iniciando processo (ID %d)\n", *id)
-	peers, err := loadPeers("peers.json")
-	if err != nil {
-		log.Fatalf("Falha ao carregar peers: %v", err)
-	}
-
-	fmt.Printf("Configuração carregada: %d peers encontrados\n", len(peers))
-	for _, p := range peers {
-		fmt.Printf("  - Peer %d: %s\n", p.ID, p.Addr)
-	}
-
-	node := pkg.NewNode(*id, peers)
-	fmt.Printf("Node inicializado com ID %d\n", node.ID)
-
-	pkg.SetNetworkDelays(*delayDataMean, *delayDataJitter, *delayAckMean, *delayAckJitter, *randSeed)
-
-	err = node.SetupNetwork()
-	if err != nil {
-		log.Fatalf("Erro ao configurar rede: %v", err)
-	}
+	node := setupNode()
 
 	fmt.Println("[EXECUTANDO] Digite 'send <mensagem>' para enviar uma mensagem, ou Ctrl+C para sair.")
-
 	inputChan := startInputReader()
 	fmt.Print("> ")
 
@@ -75,6 +53,33 @@ func resolveFlags() (id, delayDataMean, delayDataJitter, delayAckMean, delayAckJ
 	}
 
 	return idFlag, delayDataMeanFlag, delayDataJitterFlag, delayAckMeanFlag, delayAckJitterFlag, randSeedFlag
+}
+
+func setupNode() *pkg.Node {
+	id, delayDataMean, delayDataJitter, delayAckMean, delayAckJitter, randSeed := resolveFlags()
+
+	fmt.Printf("Iniciando processo (ID %d)\n", *id)
+	peers, err := loadPeers("peers.json")
+	if err != nil {
+		log.Fatalf("Falha ao carregar peers: %v", err)
+	}
+
+	fmt.Printf("Configuração carregada: %d peers encontrados\n", len(peers))
+	for _, p := range peers {
+		fmt.Printf("  - Peer %d: %s\n", p.ID, p.Addr)
+	}
+
+	node := pkg.NewNode(*id, peers)
+	fmt.Printf("Node inicializado com ID %d\n", node.ID)
+
+	pkg.SetNetworkDelays(*delayDataMean, *delayDataJitter, *delayAckMean, *delayAckJitter, *randSeed)
+
+	err = node.SetupNetwork()
+	if err != nil {
+		log.Fatalf("Erro ao configurar rede: %v", err)
+	}
+
+	return node
 }
 
 func loadPeers(configFile string) ([]pkg.Peer, error) {
