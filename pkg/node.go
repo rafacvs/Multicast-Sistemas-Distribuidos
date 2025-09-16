@@ -32,7 +32,7 @@ func NewNode(ID int, Peers []Peer) *Node {
 	}
 }
 
-func (n *Node) OnSendApp(payload string) {
+func (n *Node) OnSendDATA(payload string) {
 	timestamp := n.Clock.Tick()
 
 	ID := MessageID{

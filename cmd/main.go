@@ -140,7 +140,7 @@ func handleCommand(input string, node *pkg.Node) {
 			return
 		}
 		payload := parts[1]
-		node.OnSendApp(payload)
+		node.OnSendDATA(payload)
 
 	case "queue":
 		fmt.Printf("Fila: %d mensagens\n", node.Queue.Size())
