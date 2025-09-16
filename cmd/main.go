@@ -14,7 +14,70 @@ import (
 	"sd/t1/pkg"
 )
 
-func LoadPeers(configFile string) ([]pkg.Peer, error) {
+func main() {
+	id, delayDataMean, delayDataJitter, delayAckMean, delayAckJitter, randSeed := resolveFlags()
+
+	fmt.Printf("Iniciando processo (ID %d)\n", *id)
+	peers, err := loadPeers("peers.json")
+	if err != nil {
+		log.Fatalf("Falha ao carregar peers: %v", err)
+	}
+
+	fmt.Printf("Configuração carregada: %d peers encontrados\n", len(peers))
+	for _, p := range peers {
+		fmt.Printf("  - Peer %d: %s\n", p.ID, p.Addr)
+	}
+
+	node := pkg.NewNode(*id, peers)
+	fmt.Printf("Node inicializado com ID %d\n", node.ID)
+
+	pkg.SetNetworkDelays(*delayDataMean, *delayDataJitter, *delayAckMean, *delayAckJitter, *randSeed)
+
+	err = node.SetupNetwork()
+	if err != nil {
+		log.Fatalf("Erro ao configurar rede: %v", err)
+	}
+
+	fmt.Println("[EXECUTANDO] Digite 'send <mensagem>' para enviar uma mensagem, ou Ctrl+C para sair.")
+
+	inputChan := startInputReader()
+	fmt.Print("> ")
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	running := true
+	for running {
+		select {
+		case input := <-inputChan:
+			handleCommand(input, node)
+			fmt.Print("> ")
+		case <-sigChan:
+			fmt.Println("\n [FINALIZANDO]...")
+			running = false
+		}
+	}
+	fmt.Println("[FINALIZADO].")
+}
+
+func resolveFlags() (id, delayDataMean, delayDataJitter, delayAckMean, delayAckJitter *int, randSeed *int64) {
+	idFlag := flag.Int("id", 0, "ID do processo é obrigatório.")
+	delayDataMeanFlag := flag.Int("delay-data-mean-ms", 0, "Atraso médio (ms) para mensagens DATA")
+	delayDataJitterFlag := flag.Int("delay-data-jitter-ms", 0, "Jitter (±ms) aplicado ao atraso de DATA")
+	delayAckMeanFlag := flag.Int("delay-ack-mean-ms", 0, "Atraso médio (ms) para mensagens ACK")
+	delayAckJitterFlag := flag.Int("delay-ack-jitter-ms", 0, "Jitter (±ms) aplicado ao atraso de ACK")
+	randSeedFlag := flag.Int64("rand-seed", 0, "Semente para aleatoriedade reprodutível (0 desabilita)")
+
+	flag.Parse()
+
+	if *idFlag == 0 {
+		log.Fatal("ID do processo (--id) é obrigatório.")
+	}
+
+	return idFlag, delayDataMeanFlag, delayDataJitterFlag, delayAckMeanFlag, delayAckJitterFlag, randSeedFlag
+}
+
+func loadPeers(configFile string) ([]pkg.Peer, error) {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler arquivo de configuração: %v", err)
@@ -37,44 +100,7 @@ func LoadPeers(configFile string) ([]pkg.Peer, error) {
 	return peers, nil
 }
 
-func main() {
-	id := flag.Int("id", 0, "ID do processo é obrigatório.")
-
-	delayDataMean := flag.Int("delay-data-mean-ms", 0, "Atraso médio (ms) para mensagens DATA")
-	delayDataJitter := flag.Int("delay-data-jitter-ms", 0, "Jitter (±ms) aplicado ao atraso de DATA")
-	delayAckMean := flag.Int("delay-ack-mean-ms", 0, "Atraso médio (ms) para mensagens ACK")
-	delayAckJitter := flag.Int("delay-ack-jitter-ms", 0, "Jitter (±ms) aplicado ao atraso de ACK")
-	randSeed := flag.Int64("rand-seed", 0, "Semente para aleatoriedade reprodutível (0 desabilita)")
-
-	flag.Parse()
-
-	if *id == 0 {
-		log.Fatal("ID do processo (--id) é obrigatório.")
-	}
-
-	fmt.Printf("Iniciando processo (ID %d)\n", *id)
-	peers, err := LoadPeers("peers.json")
-	if err != nil {
-		log.Fatalf("Falha ao carregar peers: %v", err)
-	}
-
-	fmt.Printf("Configuração carregada: %d peers encontrados\n", len(peers))
-	for _, p := range peers {
-		fmt.Printf("  - Peer %d: %s\n", p.ID, p.Addr)
-	}
-
-	node := pkg.NewNode(*id, peers)
-	fmt.Printf("Node inicializado com ID %d\n", node.ID)
-
-	pkg.SetNetworkDelays(*delayDataMean, *delayDataJitter, *delayAckMean, *delayAckJitter, *randSeed)
-
-	err = node.SetupNetwork()
-	if err != nil {
-		log.Fatalf("Erro ao configurar rede: %v", err)
-	}
-
-	fmt.Println("[EXECUTANDO] Digite 'send <mensagem>' para enviar uma mensagem, ou Ctrl+C para sair.")
-
+func startInputReader() chan string {
 	inputChan := make(chan string)
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
@@ -90,22 +116,7 @@ func main() {
 		}
 	}()
 
-	fmt.Print("> ")
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	running := true
-	for running {
-		select {
-		case input := <-inputChan:
-			handleCommand(input, node)
-			fmt.Print("> ")
-		case <-sigChan:
-			fmt.Println("\n [FINALIZANDO]...")
-			running = false
-		}
-	}
-	fmt.Println("[FINALIZADO].")
+	return inputChan
 }
 
 func handleCommand(input string, node *pkg.Node) {
